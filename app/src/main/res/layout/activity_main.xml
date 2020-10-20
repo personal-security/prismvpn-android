@@ -336,6 +336,40 @@
 
                             <!-- Column 2 -->
 
+                            <androidx.cardview.widget.CardView
+                                android:id="@+id/buttonDonate"
+                                android:layout_width="150dp"
+                                android:layout_height="100dp"
+                                android:layout_marginLeft="16dp"
+                                android:layout_marginRight="16dp"
+                                android:layout_marginBottom="16dp"
+                                app:cardCornerRadius="8dp"
+                                app:cardElevation="8dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_horizontal|center_vertical"
+                                    android:orientation="vertical">
+
+                                    <ImageView
+                                        android:layout_width="60dp"
+                                        android:layout_height="60dp"
+                                        android:layout_gravity="center_horizontal"
+                                        android:src="@drawable/money" />
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Donate"
+                                        android:textAlignment="center"
+                                        android:textColor="@android:color/black"
+                                        android:textSize="14sp"
+                                        android:visibility="visible" />
+
+                                </LinearLayout>
+
+                            </androidx.cardview.widget.CardView>
 
                         </androidx.gridlayout.widget.GridLayout>
 

@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
@@ -28,6 +29,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
@@ -36,6 +38,14 @@ import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 
+import com.android.billingclient.api.BillingClient;
+import com.android.billingclient.api.BillingClientStateListener;
+import com.android.billingclient.api.BillingFlowParams;
+import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.SkuDetails;
+import com.android.billingclient.api.SkuDetailsParams;
+import com.android.billingclient.api.SkuDetailsResponseListener;
 import com.google.android.material.navigation.NavigationView;
 import com.xlab13.prismvpn.BuildConfig;
 import com.xlab13.prismvpn.R;
@@ -52,7 +62,9 @@ import com.hookedonplay.decoviewlib.events.DecoEvent;
 
 import java.util.ArrayList;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class MainActivity extends BaseActivity implements NavigationView.OnNavigationItemSelectedListener {
@@ -74,6 +86,11 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
     private TextView textView;
 
    // private ConsentForm form;
+
+    private BillingClient mBillingClient;
+    private Map<String, SkuDetails> mSkuDetailsMap = new HashMap<>();
+
+    private String mSkuId = "donate";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -184,49 +201,36 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
 
         mCardViewShare = (CardView) findViewById(R.id.CardViewShare);
 
-        mCardViewShare.setOnClickListener(new View.OnClickListener() {
-
-            @Override
-            public void onClick(View v) {
-                startFragmentActivity(FragmentWrapperActivity.BATTERY_SAVER_CODE);
-            }
-        });
+        mCardViewShare.setOnClickListener(v -> startFragmentActivity(FragmentWrapperActivity.BATTERY_SAVER_CODE));
 
         CardView button1 = (CardView) findViewById(R.id.homeBtnRandomConnection);
-        button1.setOnClickListener(new View.OnClickListener() {
-
-            public void onClick(View v) {
-                //TODO CLICK HERE START
-                sendTouchButton("homeBtnRandomConnection");
-                Server randomServer = getRandomServer();
-                if (randomServer != null) {
-                    newConnecting(randomServer, true, true);
-                } else {
-                    String randomError = String.format(getResources().getString(R.string.error_random_country), PropertiesService.getSelectedCountry());
-                    Toast.makeText(MainActivity.this, randomError, Toast.LENGTH_LONG).show();
-                }
+        button1.setOnClickListener(v -> {
+            //TODO CLICK HERE START
+            sendTouchButton("homeBtnRandomConnection");
+            Server randomServer = getRandomServer();
+            if (randomServer != null) {
+                newConnecting(randomServer, true, true);
+            } else {
+                String randomError = String.format(getResources().getString(R.string.error_random_country), PropertiesService.getSelectedCountry());
+                Toast.makeText(MainActivity.this, randomError, Toast.LENGTH_LONG).show();
             }
         });
 
         CardView button2 = (CardView) findViewById(R.id.homeBtnChooseCountry);
-        button2.setOnClickListener(new View.OnClickListener() {
+        button2.setOnClickListener(v -> {
+            sendTouchButton("homeBtnChooseCountry");
+            chooseCountry();
 
-            public void onClick(View v) {
-                sendTouchButton("homeBtnChooseCountry");
-                chooseCountry();
-
-            }
         });
 
 
         CardView button = (CardView) findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        button.setOnClickListener(v -> startFragmentActivity(FragmentWrapperActivity.BOOSTER_CODE));
 
-            public void onClick(View v) {
-                startFragmentActivity(FragmentWrapperActivity.BOOSTER_CODE);
-
-            }
-        });
+        ////// donate button
+        initBilling();
+        CardView buttonDonate = (CardView) findViewById(R.id.buttonDonate);
+        buttonDonate.setOnClickListener(v -> launchBilling(mSkuId));
     }
 
     private void startFragmentActivity (String REQUEST_ACTIVITY_CODE) {
@@ -526,6 +530,79 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         super.onPause();
     }
 
+    ///////////////////// donate section
 
+    private void initBilling() {
+        Log.i("===","try init payment service");
+        mBillingClient = BillingClient.newBuilder(this).setListener(new PurchasesUpdatedListener() {
+            @Override
+            public void onPurchasesUpdated(int responseCode, @Nullable List<Purchase> purchases) {
+                if (responseCode == BillingClient.BillingResponse.OK && purchases != null) {
+                    //here when purchase completed
+                    payComplete();
+                }
+            }
+        }).build();
+        mBillingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(@BillingClient.BillingResponse int billingResponseCode) {
+                Log.i("===","payment service fail , code : "+ billingResponseCode);
+                if (billingResponseCode == BillingClient.BillingResponse.OK) {
+                    //below you can query information about products and purchase
+                    Log.i("===","payment service ok");
+                    querySkuDetails(); //query for products
+                    List<Purchase> purchasesList = queryPurchases(); //query for purchases
+
+                    //if the purchase has already been made to give the goods
+                    for (int i = 0; i < purchasesList.size(); i++) {
+                        String purchaseId = purchasesList.get(i).getSku();
+                        if(TextUtils.equals(mSkuId, purchaseId)) {
+                            payComplete();
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onBillingServiceDisconnected() {
+                //here when something went wrong, e.g. no internet connection
+                Log.i("===","payment service fail");
+            }
+        });
+    }
+
+    private void querySkuDetails() {
+        SkuDetailsParams.Builder skuDetailsParamsBuilder = SkuDetailsParams.newBuilder();
+        List<String> skuList = new ArrayList<>();
+        skuList.add(mSkuId);
+        skuDetailsParamsBuilder.setSkusList(skuList).setType(BillingClient.SkuType.INAPP);
+        mBillingClient.querySkuDetailsAsync(skuDetailsParamsBuilder.build(), new SkuDetailsResponseListener() {
+            @Override
+            public void onSkuDetailsResponse(int responseCode, List<SkuDetails> skuDetailsList) {
+                if (responseCode == 0) {
+                    for (SkuDetails skuDetails : skuDetailsList) {
+                        mSkuDetailsMap.put(skuDetails.getSku(), skuDetails);
+                        Log.i("===",skuDetails.getDescription());
+                    }
+                }
+            }
+        });
+    }
+
+    private List<Purchase> queryPurchases() {
+        Purchase.PurchasesResult purchasesResult = mBillingClient.queryPurchases(BillingClient.SkuType.INAPP);
+        return purchasesResult.getPurchasesList();
+    }
+
+    public void launchBilling(String skuId) {
+        BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
+                .setSkuDetails(mSkuDetailsMap.get(skuId))
+                .build();
+        mBillingClient.launchBillingFlow(this, billingFlowParams);
+    }
+
+    private void payComplete() {
+        Toast.makeText(this, "Thanks for your donate! We will make the app better :)", Toast.LENGTH_SHORT).show();
+    }
 
 }
