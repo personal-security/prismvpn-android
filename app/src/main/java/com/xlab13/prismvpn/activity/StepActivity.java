@@ -2,6 +2,8 @@ package com.xlab13.prismvpn.activity;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,8 +21,25 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
+import com.squareup.picasso.Picasso;
 import com.xlab13.prismvpn.Constant;
 import com.xlab13.prismvpn.R;
+import com.xlab13.prismvpn.api.AppItem;
+import com.xlab13.prismvpn.api.AppsApi;
+import com.xlab13.prismvpn.api.AppsResponse;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class StepActivity extends AppCompatActivity {
 
@@ -94,6 +113,7 @@ public class StepActivity extends AppCompatActivity {
                 }
             }
         });
+
     }
 
     private void addBottomDots(int currentPage) {

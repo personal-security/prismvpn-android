@@ -79,6 +79,7 @@
 
         </activity>
         <activity android:name="com.xlab13.prismvpn.activity.FragmentWrapperActivity" />
+        <activity android:name="com.xlab13.prismvpn.activity.MoreAppsActivity" />
         <activity android:name="com.xlab13.prismvpn.activity.Black_Battery_Saver" />
         <activity android:name="com.xlab13.prismvpn.activity.Apps_Picker" />
         <activity android:name="com.xlab13.prismvpn.activity.NormalMode" />

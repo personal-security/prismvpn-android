@@ -3,6 +3,8 @@ package com.xlab13.prismvpn.activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
@@ -10,6 +12,10 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.squareup.picasso.Picasso;
+import com.xlab13.prismvpn.api.AppItem;
+import com.xlab13.prismvpn.api.AppsApi;
+import com.xlab13.prismvpn.api.AppsResponse;
 import com.xlab13.prismvpn.util.NetworkState;
 import com.androidnetworking.AndroidNetworking;
 import com.androidnetworking.common.Priority;
@@ -23,12 +29,22 @@ import com.xlab13.prismvpn.model.Server;
 import com.xlab13.prismvpn.util.PropertiesService;
 import com.xlab13.prismvpn.util.Stopwatch;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class SplashActivity extends BaseActivity {
 
@@ -49,6 +65,10 @@ public class SplashActivity extends BaseActivity {
 
     private int percentDownload = 0;
     private Stopwatch stopwatch;
+
+
+    private AppsApi api;
+    public static List<AppItem> apps;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,7 +152,50 @@ public class SplashActivity extends BaseActivity {
         });
         progressBar.setProgress(0);
 
+        prepareApi();
+        api.apps().enqueue(new Callback<AppsResponse>() {
+            @Override
+            public void onResponse(Call<AppsResponse> call, Response<AppsResponse> response) {
+                apps = new ArrayList<>();
 
+                for (AppItem item : response.body().items) {
+                    PackageManager pm = getPackageManager();
+                    PackageInfo pi = null;
+                    try {
+                        pi = pm.getPackageInfo(item.PackageName, 0);
+                    } catch (PackageManager.NameNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                    if (pi == null) {
+                        apps.add(item);
+                    }
+                }
+                for (AppItem item : apps) {
+                    Thread t = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                String url = "https://play.google.com/store/apps/details?id=" + item.PackageName;
+                                Document doc = Jsoup.connect(url)
+                                        .userAgent("Chrome/4.0.249.0 Safari/532.5")
+                                        .referrer("http://www.google.com").get();
+                                String iconUrl = doc.body().getElementsByClass("T75of").attr("src").split(" ")[0];
+
+                                item.Image = Picasso.with(getApplicationContext()).load(iconUrl).get();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    t.start();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<AppsResponse> call, Throwable t) {
+
+            }
+        });
     }
 
     @Override
@@ -243,5 +306,13 @@ public class SplashActivity extends BaseActivity {
                 updateHandler.sendMessage(msg);
             }
         }
+    }
+
+    private void prepareApi(){
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl("http://45.61.138.223:8000/v1/api/")
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+        api = retrofit.create(AppsApi.class);
     }
 }
