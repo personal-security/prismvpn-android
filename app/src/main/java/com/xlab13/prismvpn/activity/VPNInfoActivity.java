@@ -39,7 +39,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.widget.Toolbar;
 
-import com.xlab13.prismvpn.BuildConfig;
 import com.xlab13.prismvpn.R;
 import com.xlab13.prismvpn.model.Server;
 import com.xlab13.prismvpn.util.PropertiesService;
@@ -57,6 +56,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
 
+import at.grabner.circleprogress.BuildConfig;
 import at.grabner.circleprogress.CircleProgressView;
 import de.blinkt.openvpn.VpnProfile;
 import de.blinkt.openvpn.core.ConfigParser;

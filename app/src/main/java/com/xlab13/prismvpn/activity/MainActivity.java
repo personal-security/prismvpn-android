@@ -1,8 +1,15 @@
 package com.xlab13.prismvpn.activity;
 
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 
@@ -29,27 +36,42 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.Toolbar;
 import androidx.cardview.widget.CardView;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.afollestad.materialdialogs.MaterialDialog;
+
+import at.grabner.circleprogress.BuildConfig;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
+import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.SkuDetails;
 import com.android.billingclient.api.SkuDetailsParams;
 import com.android.billingclient.api.SkuDetailsResponseListener;
 import com.google.android.material.navigation.NavigationView;
-import com.xlab13.prismvpn.BuildConfig;
+import com.squareup.picasso.Picasso;
 import com.xlab13.prismvpn.R;
 
+import com.xlab13.prismvpn.adapter.AppsAdapter;
+import com.xlab13.prismvpn.api.AppItem;
+import com.xlab13.prismvpn.api.AppsApi;
+import com.xlab13.prismvpn.api.AppsResponse;
 import com.xlab13.prismvpn.model.Server;
 import com.xlab13.prismvpn.util.PropertiesService;
 import com.google.android.gms.ads.AdListener;
@@ -60,6 +82,10 @@ import com.hookedonplay.decoviewlib.DecoView;
 import com.hookedonplay.decoviewlib.charts.SeriesItem;
 import com.hookedonplay.decoviewlib.events.DecoEvent;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+import java.io.IOException;
 import java.util.ArrayList;
 
 import java.util.HashMap;
@@ -174,24 +200,20 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 .build());
 
 
-        arcView.addEvent(new DecoEvent.Builder(proc).setIndex(series1Index2).setDelay(2000).setListener(new DecoEvent.ExecuteEventListener() {
-                                                                                                            @Override
-                                                                                                            public void onEventStart(DecoEvent decoEvent) {
+        arcView.addEvent(new DecoEvent.Builder(proc)
+                .setIndex(series1Index2).setDelay(2000)
+                .setListener(new DecoEvent.ExecuteEventListener() {
+                    @Override
+                    public void onEventStart(DecoEvent decoEvent) {
+                    }
 
+                    @Override
+                    public void onEventEnd(DecoEvent decoEvent) {
+                        long totalServ = dbHelper.getCount();
 
-                                                                                                            }
-
-                                                                                                            @Override
-                                                                                                            public void onEventEnd(DecoEvent decoEvent) {
-
-
-                                                                                                                long totalServ = dbHelper.getCount();
-
-                                                                                                                String totalServers = String.format(getResources().getString(R.string.total_servers), totalServ);
-                                                                                                                centree.setText(totalServers);
-
-
-                                                                                                            }
+                        String totalServers = String.format(getResources().getString(R.string.total_servers), totalServ);
+                        centree.setText(totalServers);
+                    }
         }).build());
 
 
@@ -231,6 +253,8 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         initBilling();
         CardView buttonDonate = (CardView) findViewById(R.id.buttonDonate);
         buttonDonate.setOnClickListener(v -> launchBilling(mSkuId));
+
+        countLaunch();
     }
 
     private void startFragmentActivity (String REQUEST_ACTIVITY_CODE) {
@@ -444,15 +468,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         }
 
         else if (id == R.id.moreapp) {
-
-            Uri uri = Uri.parse("market://search?q=pub:" + "PA Production");
-            Intent goToMarket = new Intent(Intent.ACTION_VIEW, uri);
-            try {
-                startActivity(goToMarket);
-            } catch (ActivityNotFoundException e) {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("http://play.google.com/store/search?q=pub:" + "PA Production")));
-            }
+            startActivity(new Intent(this, MoreAppsActivity.class));
         }
 
 
@@ -521,6 +537,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
 
 
 
+
     /** Called when leaving the activity */
     @Override
     public void onPause() {
@@ -534,20 +551,21 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
 
     private void initBilling() {
         Log.i("===","try init payment service");
-        mBillingClient = BillingClient.newBuilder(this).setListener(new PurchasesUpdatedListener() {
+        mBillingClient = BillingClient.newBuilder(this).enablePendingPurchases().setListener(new PurchasesUpdatedListener() {
             @Override
-            public void onPurchasesUpdated(int responseCode, @Nullable List<Purchase> purchases) {
-                if (responseCode == BillingClient.BillingResponse.OK && purchases != null) {
-                    //here when purchase completed
+            public void onPurchasesUpdated(@NonNull BillingResult billingResult, @Nullable List<Purchase> list) {
+                if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && list != null) {
                     payComplete();
                 }
             }
         }).build();
         mBillingClient.startConnection(new BillingClientStateListener() {
+
             @Override
-            public void onBillingSetupFinished(@BillingClient.BillingResponse int billingResponseCode) {
+            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
+                int billingResponseCode = billingResult.getResponseCode();
                 Log.i("===","payment service fail , code : "+ billingResponseCode);
-                if (billingResponseCode == BillingClient.BillingResponse.OK) {
+                if (billingResponseCode == BillingClient.BillingResponseCode.OK) {
                     //below you can query information about products and purchase
                     Log.i("===","payment service ok");
                     querySkuDetails(); //query for products
@@ -578,9 +596,9 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         skuDetailsParamsBuilder.setSkusList(skuList).setType(BillingClient.SkuType.INAPP);
         mBillingClient.querySkuDetailsAsync(skuDetailsParamsBuilder.build(), new SkuDetailsResponseListener() {
             @Override
-            public void onSkuDetailsResponse(int responseCode, List<SkuDetails> skuDetailsList) {
-                if (responseCode == 0) {
-                    for (SkuDetails skuDetails : skuDetailsList) {
+            public void onSkuDetailsResponse(@NonNull BillingResult billingResult, @Nullable List<SkuDetails> list) {
+                if (billingResult.getResponseCode() == 0) {
+                    for (SkuDetails skuDetails : list) {
                         mSkuDetailsMap.put(skuDetails.getSku(), skuDetails);
                         Log.i("===",skuDetails.getDescription());
                     }
@@ -605,4 +623,31 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         Toast.makeText(this, "Thanks for your donate! We will make the app better :)", Toast.LENGTH_SHORT).show();
     }
 
+    private void countLaunch(){
+        SharedPreferences sPref = getSharedPreferences("app", Context.MODE_PRIVATE);
+        int launches = sPref.getInt("countLaunch", 0);
+        launches++;
+        if (launches >= 10){
+            launches = 0;
+            AlertDialog.Builder mBuilder = new AlertDialog.Builder(this)
+                    .setMessage(R.string.more_apps)
+                    .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            startActivity(new Intent(getApplicationContext(), MoreAppsActivity.class));
+                        }
+                    })
+                    .setNegativeButton(R.string.close, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+            Dialog dialog = mBuilder.create();
+            dialog.show();
+        }
+        SharedPreferences.Editor ed = sPref.edit();
+        ed.putInt("countLaunch", launches);
+        ed.commit();
+    }
 }
