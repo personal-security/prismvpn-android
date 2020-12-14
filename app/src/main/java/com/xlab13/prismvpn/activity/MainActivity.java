@@ -107,14 +107,14 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
         adView = findViewById(R.id.admob_adview);
         AdRequest adRequest = new AdRequest.Builder()
                 .build();
-        //adView.loadAd(adRequest);
+        adView.loadAd(adRequest);
 
 
 
 
         final InterstitialAd mInterstitial = new InterstitialAd(this);
         mInterstitial.setAdUnitId(getString(R.string.interstitial_ad_unit));
-        //mInterstitial.loadAd(new AdRequest.Builder().build());
+        mInterstitial.loadAd(new AdRequest.Builder().build());
 
         mInterstitial.setAdListener(new AdListener() {
             @Override
@@ -122,7 +122,7 @@ public class MainActivity extends BaseActivity implements NavigationView.OnNavig
                 // TODO Auto-generated method stub
                 super.onAdLoaded();
                 if (mInterstitial.isLoaded()) {
-                    //mInterstitial.show();
+                    mInterstitial.show();
                 }
             }
         });

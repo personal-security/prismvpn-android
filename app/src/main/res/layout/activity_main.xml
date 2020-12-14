@@ -175,7 +175,7 @@
                         <androidx.gridlayout.widget.GridLayout xmlns:grid="http://schemas.android.com/apk/res-auto"
                             android:id="@+id/mainGrid"
                             android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
+                            android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
                             app:columnCount="2"
                             android:layout_gravity="center">
