@@ -187,7 +187,7 @@ public class SplashActivity extends BaseActivity {
 
                                 item.Image = Picasso.with(getApplicationContext()).load(iconUrl).get();
                             } catch (IOException e) {
-                                e.printStackTrace();
+                                return;
                             }
                         }
                     });
@@ -197,7 +197,7 @@ public class SplashActivity extends BaseActivity {
 
             @Override
             public void onFailure(Call<AppsResponse> call, Throwable t) {
-
+                apps = new ArrayList<>();
             }
         });
     }
