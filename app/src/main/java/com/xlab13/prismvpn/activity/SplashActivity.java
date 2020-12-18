@@ -158,17 +158,21 @@ public class SplashActivity extends BaseActivity {
             public void onResponse(Call<AppsResponse> call, Response<AppsResponse> response) {
                 apps = new ArrayList<>();
 
-                for (AppItem item : response.body().items) {
-                    PackageManager pm = getPackageManager();
-                    PackageInfo pi = null;
-                    try {
-                        pi = pm.getPackageInfo(item.PackageName, 0);
-                    } catch (PackageManager.NameNotFoundException e) {
-                        e.printStackTrace();
+                try {
+                    for (AppItem item : response.body().items) {
+                        PackageManager pm = getPackageManager();
+                        PackageInfo pi = null;
+                        try {
+                            pi = pm.getPackageInfo(item.PackageName, 0);
+                        } catch (PackageManager.NameNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                        if (pi == null) {
+                            apps.add(item);
+                        }
                     }
-                    if (pi == null) {
-                        apps.add(item);
-                    }
+                }catch (Exception e){
+                    return;
                 }
                 for (AppItem item : apps) {
                     Thread t = new Thread(new Runnable() {
