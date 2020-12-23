@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
 
+import com.google.firebase.crashlytics.internal.model.CrashlyticsReport;
 import com.squareup.picasso.Picasso;
 import com.xlab13.prismvpn.api.AppItem;
 import com.xlab13.prismvpn.api.AppsApi;
@@ -68,7 +69,7 @@ public class SplashActivity extends BaseActivity {
 
 
     private AppsApi api;
-    public static List<AppItem> apps;
+    public static List<AppItem> apps = new ArrayList<>();;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,53 +154,59 @@ public class SplashActivity extends BaseActivity {
         progressBar.setProgress(0);
 
         prepareApi();
-        api.apps().enqueue(new Callback<AppsResponse>() {
-            @Override
-            public void onResponse(Call<AppsResponse> call, Response<AppsResponse> response) {
-                apps = new ArrayList<>();
+        try {
+            api.apps().enqueue(new Callback<AppsResponse>() {
+                @Override
+                public void onResponse(Call<AppsResponse> call, Response<AppsResponse> response) {
+                    apps = new ArrayList<>();
 
-                try {
-                    for (AppItem item : response.body().items) {
-                        PackageManager pm = getPackageManager();
-                        PackageInfo pi = null;
-                        try {
-                            pi = pm.getPackageInfo(item.PackageName, 0);
-                        } catch (PackageManager.NameNotFoundException e) {
-                            e.printStackTrace();
-                        }
-                        if (pi == null) {
-                            apps.add(item);
-                        }
-                    }
-                }catch (Exception e){
-                    return;
-                }
-                for (AppItem item : apps) {
-                    Thread t = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
+                    try {
+                        for (AppItem item : response.body().items) {
+                            PackageManager pm = getPackageManager();
+                            PackageInfo pi = null;
                             try {
-                                String url = "https://play.google.com/store/apps/details?id=" + item.PackageName;
-                                Document doc = Jsoup.connect(url)
-                                        .userAgent("Chrome/4.0.249.0 Safari/532.5")
-                                        .referrer("http://www.google.com").get();
-                                String iconUrl = doc.body().getElementsByClass("T75of").attr("src").split(" ")[0];
-
-                                item.Image = Picasso.with(getApplicationContext()).load(iconUrl).get();
-                            } catch (IOException e) {
-                                return;
+                                pi = pm.getPackageInfo(item.PackageName, 0);
+                            } catch (PackageManager.NameNotFoundException e) {
+                                e.printStackTrace();
+                            }
+                            if (pi == null) {
+                                apps.add(item);
                             }
                         }
-                    });
-                    t.start();
-                }
-            }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                    for (AppItem item : apps) {
+                        Thread t = new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    String url = "https://play.google.com/store/apps/details?id=" + item.PackageName;
+                                    Document doc = Jsoup.connect(url)
+                                            .userAgent("Chrome/4.0.249.0 Safari/532.5")
+                                            .referrer("http://www.google.com").get();
+                                    String iconUrl = doc.body().getElementsByClass("T75of").attr("src").split(" ")[0];
 
-            @Override
-            public void onFailure(Call<AppsResponse> call, Throwable t) {
-                apps = new ArrayList<>();
-            }
-        });
+                                    item.Image = Picasso.with(getApplicationContext()).load(iconUrl).get();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    return;
+                                }
+                            }
+                        });
+                        t.start();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<AppsResponse> call, Throwable t) {
+                    apps = new ArrayList<>();
+                }
+            });
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -313,10 +320,14 @@ public class SplashActivity extends BaseActivity {
     }
 
     private void prepareApi(){
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://45.61.138.223:8000/v1/api/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-        api = retrofit.create(AppsApi.class);
+        try {
+            Retrofit retrofit = new Retrofit.Builder()
+                    .baseUrl("http://45.61.138.223:8000/v1/api/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build();
+            api = retrofit.create(AppsApi.class);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 }

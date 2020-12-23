@@ -14,8 +14,8 @@ android {
         applicationId 'com.xlab13.prismvpn'
         minSdkVersion 19
         targetSdkVersion 30
-        versionCode 7
-        versionName '0.0.7'
+        versionCode 8
+        versionName '0.0.8'
 
         multiDexEnabled true
     }
